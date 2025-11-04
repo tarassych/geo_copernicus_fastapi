@@ -48,7 +48,29 @@ gcloud services enable \
     secretmanager.googleapis.com
 ```
 
-#### Step 2: Create Secret for API Key
+#### Step 2: Create Secrets
+
+**Option A: Using .env File Format (Recommended)**
+
+This approach stores all environment variables in a single secret as a .env file:
+
+```bash
+# Create secret with .env file format
+cat << 'EOF' | gcloud secrets create AppSecretsFromDotEnv --data-file=-
+TARGET_DIR=tilescache
+LOG_DIR=logs
+TOPO_API_KEY=your_opentopography_api_key_here
+EOF
+
+# Grant Cloud Run access to the secret
+gcloud secrets add-iam-policy-binding AppSecretsFromDotEnv \
+    --member="serviceAccount:${PROJECT_ID}@appspot.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor"
+```
+
+**Option B: Individual Secrets (Alternative)**
+
+Store each variable as a separate secret:
 
 ```bash
 # Create secret for OpenTopography API key
@@ -60,6 +82,11 @@ gcloud secrets add-iam-policy-binding TOPO_API_KEY \
     --member="serviceAccount:${PROJECT_ID}@appspot.gserviceaccount.com" \
     --role="roles/secretmanager.secretAccessor"
 ```
+
+**Note**: The application automatically detects which method you're using:
+- If `AppSecretsFromDotEnv` exists, it loads all variables from there
+- Otherwise, it falls back to individual environment variables
+- Locally, it reads from `.env` file
 
 #### Step 3: Build Container
 
@@ -107,14 +134,48 @@ gcloud beta builds triggers create github \
 
 ### Environment Variables
 
-Set in Cloud Run deployment:
+#### Loading Strategy
+
+The application automatically detects the environment and loads variables appropriately:
+
+1. **GCP Cloud Run**: Loads from `AppSecretsFromDotEnv` secret (mounted as environment variable)
+2. **Local Development**: Loads from `.env` file in project root
+
+#### Configuration Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `8080` | Cloud Run auto-sets this |
 | `TARGET_DIR` | `tilescache` | DEM tiles cache directory |
 | `LOG_DIR` | `logs` | Operation logs directory |
-| `TOPO_API_KEY` | - | From Secret Manager |
+| `TOPO_API_KEY` | - | OpenTopography API key |
+
+#### Secret Manager Setup
+
+**Recommended: Single .env Secret**
+
+```bash
+# Create AppSecretsFromDotEnv secret
+cat << 'EOF' > /tmp/app.env
+TARGET_DIR=tilescache
+LOG_DIR=logs
+TOPO_API_KEY=your_actual_api_key_here
+EOF
+
+gcloud secrets create AppSecretsFromDotEnv --data-file=/tmp/app.env
+rm /tmp/app.env
+
+# Update existing secret
+cat << 'EOF' | gcloud secrets versions add AppSecretsFromDotEnv --data-file=-
+TARGET_DIR=tilescache
+LOG_DIR=logs
+TOPO_API_KEY=your_updated_api_key_here
+EOF
+```
+
+**Alternative: Individual Secrets**
+
+If you prefer individual secrets, set them as environment variables in Cloud Run.
 
 ### Resource Configuration
 

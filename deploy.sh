@@ -41,16 +41,25 @@ gcloud services enable \
 echo "🏗️  Building Docker container..."
 gcloud builds submit --tag ${IMAGE_NAME}
 
-# Create secret for API key (if it doesn't exist)
+# Create secret for environment variables (if it doesn't exist)
 echo "🔐 Setting up secrets..."
-if ! gcloud secrets describe TOPO_API_KEY &> /dev/null; then
-    echo "Creating TOPO_API_KEY secret..."
+if ! gcloud secrets describe AppSecretsFromDotEnv &> /dev/null; then
+    echo "Creating AppSecretsFromDotEnv secret with .env format..."
     echo "Please enter your OpenTopography API key:"
     read -s API_KEY
-    echo -n "${API_KEY}" | gcloud secrets create TOPO_API_KEY --data-file=-
-    echo "✅ Secret created"
+    
+    # Create .env format secret
+    cat << EOF | gcloud secrets create AppSecretsFromDotEnv --data-file=-
+TARGET_DIR=tilescache
+LOG_DIR=logs
+TOPO_API_KEY=${API_KEY}
+EOF
+    
+    echo "✅ Secret created in .env format"
 else
-    echo "✅ Secret TOPO_API_KEY already exists"
+    echo "✅ Secret AppSecretsFromDotEnv already exists"
+    echo "To update it, run:"
+    echo "  cat .env | gcloud secrets versions add AppSecretsFromDotEnv --data-file=-"
 fi
 
 # Deploy to Cloud Run
@@ -64,8 +73,7 @@ gcloud run deploy ${SERVICE_NAME} \
     --cpu 2 \
     --timeout 300 \
     --max-instances 10 \
-    --set-env-vars TARGET_DIR=tilescache,LOG_DIR=logs \
-    --set-secrets TOPO_API_KEY=TOPO_API_KEY:latest
+    --update-secrets AppSecretsFromDotEnv=AppSecretsFromDotEnv:latest
 
 # Get the service URL
 SERVICE_URL=$(gcloud run services describe ${SERVICE_NAME} \

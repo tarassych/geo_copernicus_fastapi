@@ -31,8 +31,7 @@ steps:
       - '--cpu=2'
       - '--timeout=300'
       - '--max-instances=10'
-      - '--set-env-vars=TARGET_DIR=tilescache,LOG_DIR=logs'
-      - '--set-secrets=TOPO_API_KEY=TOPO_API_KEY:latest'
+      - '--update-secrets=AppSecretsFromDotEnv=AppSecretsFromDotEnv:latest'
 
 # Store images in Container Registry
 images:
