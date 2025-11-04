@@ -1,0 +1,46 @@
+# Google Cloud Build configuration for Cloud Run deployment
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/copernicus-fastapi:$COMMIT_SHA'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/copernicus-fastapi:latest'
+      - '.'
+  
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'push'
+      - 'gcr.io/$PROJECT_ID/copernicus-fastapi:$COMMIT_SHA'
+  
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'copernicus-fastapi'
+      - '--image=gcr.io/$PROJECT_ID/copernicus-fastapi:$COMMIT_SHA'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--memory=2Gi'
+      - '--cpu=2'
+      - '--timeout=300'
+      - '--max-instances=10'
+      - '--set-env-vars=TARGET_DIR=tilescache,LOG_DIR=logs'
+      - '--set-secrets=TOPO_API_KEY=TOPO_API_KEY:latest'
+
+# Store images in Container Registry
+images:
+  - 'gcr.io/$PROJECT_ID/copernicus-fastapi:$COMMIT_SHA'
+  - 'gcr.io/$PROJECT_ID/copernicus-fastapi:latest'
+
+# Cloud Build configuration
+options:
+  machineType: 'N1_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
+
