@@ -27,13 +27,14 @@ async def healthcheck(settings: Settings = Depends(get_settings)):
                 "port": os.getenv("PORT", "8000")
             },
             "api_key_configured": bool(settings.topo_api_key and settings.topo_api_key != "your_api_key_here"),
-            "endpoints": {
-                "docs": "/docs",
-                "buildcache": "/buildcache",
-                "elevation_point": "/elevation/point",
-                "elevation_check": "/elevation/check",
-                "elevation_difference": "/elevation/difference"
-            }
+                "endpoints": {
+                    "docs": "/docs",
+                    "buildcache": "/buildcache",
+                    "cachemap": "/cachemap",
+                    "elevation_point": "/elevation/point",
+                    "elevation_check": "/elevation/check",
+                    "elevation_difference": "/elevation/difference"
+                }
         }
     )
 

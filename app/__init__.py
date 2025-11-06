@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routers import healthcheck, buildcache, elevation
+from app.routers import healthcheck, buildcache, cachemap, elevation
 
 
 def create_app() -> FastAPI:
@@ -15,6 +15,7 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(healthcheck.router, tags=["Health"])
     app.include_router(buildcache.router, tags=["Cache"])
+    app.include_router(cachemap.router, tags=["Cache"])
     app.include_router(elevation.router, tags=["Elevation"])
 
     return app
