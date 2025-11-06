@@ -8,22 +8,33 @@ A FastAPI application for Copernicus data services.
 .
 ├── main.py                     # Application entry point
 ├── app/
-│   ├── __init__.py            # App factory
+│   ├── __init__.py            # App factory with static file mounting
 │   ├── config.py              # Configuration management
 │   ├── models/                # Pydantic models for validation
 │   │   ├── __init__.py
 │   │   ├── buildcache.py      # BuildCache models
+│   │   ├── cachemap.py        # CacheMap models
 │   │   └── elevation.py       # Elevation models
 │   ├── services/              # Business logic services
 │   │   ├── __init__.py
 │   │   ├── tile_utils.py      # Tile calculation utilities
+│   │   ├── grid_splitter.py   # Grid splitting for large areas
 │   │   ├── opentopography.py  # OpenTopography API service
-│   │   └── elevation_service.py # Elevation query service
+│   │   ├── elevation_service.py # Elevation query service
+│   │   └── elevation_logger.py  # Elevation logging service
 │   └── routers/               # API endpoints organized by URL
 │       ├── __init__.py
 │       ├── healthcheck.py     # /healthcheck endpoint
 │       ├── buildcache.py      # /buildcache endpoint
+│       ├── cachemap.py        # /cachemap endpoint (large areas)
 │       └── elevation.py       # /elevation endpoints
+├── mapapp/                    # Next.js map visualization app
+│   ├── app/                   # Next.js app directory
+│   ├── components/            # React components
+│   ├── data/                  # Static data (cached tiles list)
+│   ├── out/                   # Static build output (served at /map/)
+│   ├── package.json
+│   └── README.md
 ├── tilescache/                # Cached DEM tiles (created on first run)
 ├── logs/                      # Operation logs (created on first run)
 ├── .env                       # Environment variables (not committed)
@@ -75,8 +86,44 @@ python main.py
 
 ### Health Check
 - **GET** `/healthcheck`
-  - Returns API status and configuration
-  - Response: `{"status": "OK", "target_dir": "tilescache"}`
+  - Returns API status, configuration, and available endpoints
+  - Response includes environment variables and API key configuration status
+  - **Example Response:**
+    ```json
+    {
+      "status": "OK",
+      "service": "Copernicus DEM FastAPI",
+      "environment": {
+        "target_dir": "tilescache",
+        "log_dir": "logs",
+        "port": "8000"
+      },
+      "api_key_configured": true,
+      "endpoints": {
+        "docs": "/docs",
+        "map": "/map/",
+        "buildcache": "/buildcache",
+        "cachemap": "/cachemap",
+        "elevation_point": "/elevation/point",
+        "elevation_check": "/elevation/check",
+        "elevation_difference": "/elevation/difference"
+      }
+    }
+    ```
+
+### Map Visualization
+- **GET** `/map/`
+  - Interactive map application showing DEM tile coverage
+  - Displays cached tiles with boundaries and names
+  - Shows DEM coverage area and map boundaries
+  - Includes legend with tile statistics
+  - **Features:**
+    - OpenStreetMap base layer (no API key required)
+    - Visual representation of all cached tiles
+    - Light blue tile name labels
+    - Coverage statistics and missing tile information
+  - **Access:** Open `http://localhost:8000/map/` in your browser
+  - **Note:** The map is a static Next.js application served by FastAPI
 
 ### Elevation Query
 - **GET** `/elevation/point`
@@ -161,6 +208,37 @@ python main.py
     - Road grade calculation
     - Terrain analysis
     - Viewshed studies
+
+### Cache Map (Large Areas)
+- **GET** `/cachemap`
+  - Downloads and caches DEM tiles for large geographic areas by splitting them into 100km squares
+  - **What it does:**
+    1. Validates the overall bounding box
+    2. Splits the area into approximately 100km × 100km squares
+    3. For each square:
+       - Calls internal buildcache logic
+       - Downloads required tiles
+       - Builds VRT mosaic
+    4. Aggregates results from all squares
+    5. Provides comprehensive summary
+  
+  - **Required Parameters:**
+    - `min_lat` (float): Southern latitude of overall bounding box (-90 to 90)
+    - `max_lat` (float): Northern latitude of overall bounding box (-90 to 90)
+    - `min_lon` (float): Western longitude of overall bounding box (-180 to 180)
+    - `max_lon` (float): Eastern longitude of overall bounding box (-180 to 180)
+  
+  - **Optional Parameters:**
+    - `resolution` (string): DEM resolution - "GLO-30" (30m, default) or "GLO-90" (90m)
+    - `buffer_km` (float): Extra margin around each square in kilometers
+    - `force_update` (boolean): Redownload files even if they exist (default: false)
+  
+  - **Example Request:**
+    ```bash
+    curl "http://localhost:8000/cachemap?min_lat=46.062027&max_lat=51.757555&min_lon=21.106558&max_lon=38.736462&resolution=GLO-30"
+    ```
+  
+  - **Use Case:** This endpoint is ideal for caching data for entire countries or large regions that exceed the 100km limit of the standard `/buildcache` endpoint.
 
 ### Build Cache
 - **GET** `/buildcache`

@@ -29,6 +29,7 @@ async def healthcheck(settings: Settings = Depends(get_settings)):
             "api_key_configured": bool(settings.topo_api_key and settings.topo_api_key != "your_api_key_here"),
                 "endpoints": {
                     "docs": "/docs",
+                    "map": "/map/",
                     "buildcache": "/buildcache",
                     "cachemap": "/cachemap",
                     "elevation_point": "/elevation/point",

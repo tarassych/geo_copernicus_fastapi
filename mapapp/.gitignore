@@ -13,7 +13,8 @@
 
 # next.js
 /.next/
-/out/
+# Keep out/ for deployment
+# /out/
 
 # production
 /build
